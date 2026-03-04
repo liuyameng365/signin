@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>签到结果</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="card">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="msg {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <h1>{{ user.name }}，签到流程完成</h1>
+    <p>累计签到天数：<strong>{{ user.signed_days }}</strong></p>
+    <a href="{{ url_for('index') }}" class="btn">返回扫码页</a>
+    <a href="{{ url_for('admin_page') }}" class="btn">查看后台</a>
+  </div>
+</body>
+</html>
