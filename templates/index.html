@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>扫码签到</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="card">
+    <h1>扫码签到</h1>
+    <p>请使用微信扫描下方二维码进行签到。</p>
+    <img src="{{ url_for('qr_image', token=token) }}" alt="签到二维码" class="qr" />
+    <p class="hint">（演示模式：扫码后将模拟微信身份获取）</p>
+    <a href="{{ url_for('admin_page') }}" class="btn">进入后台管理</a>
+  </div>
+</body>
+</html>

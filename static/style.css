@@ -1,0 +1,90 @@
+body {
+  font-family: "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  background: #f4f6fb;
+  color: #333;
+  margin: 0;
+}
+
+.card,
+.container {
+  max-width: 860px;
+  margin: 40px auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  padding: 24px;
+}
+
+.qr {
+  width: 260px;
+  height: 260px;
+  display: block;
+  margin: 20px auto;
+}
+
+.btn {
+  display: inline-block;
+  padding: 10px 16px;
+  margin-right: 8px;
+  border-radius: 8px;
+  text-decoration: none;
+  border: none;
+  background: #e4e9f7;
+  color: #333;
+  cursor: pointer;
+}
+
+.btn.primary {
+  background: #315efb;
+  color: #fff;
+}
+
+.profile {
+  padding-left: 16px;
+}
+
+.filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.filters input {
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #d8deea;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+th,
+td {
+  border-bottom: 1px solid #edf0f7;
+  text-align: left;
+  padding: 12px;
+}
+
+.msg {
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.msg.success {
+  background: #e5f9ee;
+  color: #0c7a43;
+}
+
+.msg.warning {
+  background: #fff7e6;
+  color: #8a5a00;
+}
+
+.hint {
+  color: #5a6271;
+}

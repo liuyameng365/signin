@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>确认签到</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="card">
+    <h1>确认签到</h1>
+    <ul class="profile">
+      <li><strong>姓名：</strong>{{ user.name }}</li>
+      <li><strong>身份证号：</strong>{{ user.id_card }}</li>
+      <li><strong>所属工区：</strong>{{ user.work_area }}</li>
+      <li><strong>已签到天数：</strong>{{ user.signed_days }}</li>
+    </ul>
+    <form action="{{ url_for('do_checkin', token=session.token) }}" method="post">
+      <button type="submit" class="btn primary">确认签到</button>
+    </form>
+  </div>
+</body>
+</html>
