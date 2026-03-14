@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import io
+import os
 import secrets
 from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
+from urllib.parse import quote_plus
 
 import qrcode
 from flask import (
@@ -24,10 +26,38 @@ from sqlalchemy import and_
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "signin.db"
 
+
+def build_database_uri() -> str:
+    """默认使用 MySQL；开发调试可通过 USE_SQLITE=1 切回 SQLite。"""
+
+    if os.getenv("USE_SQLITE", "0") == "1":
+        return f"sqlite:///{DB_PATH}"
+
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        return database_url
+
+    mysql_host = os.getenv("MYSQL_HOST", "127.0.0.1")
+    mysql_port = os.getenv("MYSQL_PORT", "3306")
+    mysql_user = os.getenv("MYSQL_USER", "root")
+    mysql_password = quote_plus(os.getenv("MYSQL_PASSWORD", ""))
+    mysql_db = os.getenv("MYSQL_DB", "signin")
+    mysql_charset = os.getenv("MYSQL_CHARSET", "utf8mb4")
+
+    return (
+        f"mysql+pymysql://{mysql_user}:{mysql_password}@{mysql_host}:{mysql_port}/"
+        f"{mysql_db}?charset={mysql_charset}"
+    )
+
+
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_PATH}"
+app.config["SQLALCHEMY_DATABASE_URI"] = build_database_uri()
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_pre_ping": True,
+    "pool_recycle": 1800,
+}
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SECRET_KEY"] = "dev-change-me"
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-change-me")
 
 db = SQLAlchemy(app)
 
