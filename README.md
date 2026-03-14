@@ -65,6 +65,13 @@ pip install -r requirements.txt
 python app.py
 ```
 
+> 如果报错：
+>
+> `RuntimeError: 'cryptography' package is required for sha256_password or caching_sha2_password auth methods`
+>
+> 说明 MySQL 账号使用了 `caching_sha2_password/sha256_password` 认证方式。
+> 本项目已在 `requirements.txt` 增加 `cryptography`，重新执行 `pip install -r requirements.txt` 即可。
+
 ### 4) 开发模式切回 SQLite（可选）
 
 ```bash
