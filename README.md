@@ -33,7 +33,30 @@ export SECRET_KEY=请替换为随机字符串
 >
 > `mysql+pymysql://user:password@host:3306/signin?charset=utf8mb4`
 
-### 2) 启动应用
+### 2) 使用 `.env.example` 生成本地配置
+
+```bash
+cp .env.example .env
+# 按你的环境修改 .env，至少要改 MYSQL_PASSWORD 和 SECRET_KEY
+```
+
+你可以在启动前加载环境变量（任选一种方式）：
+
+方式 A（推荐，一次性加载当前终端）：
+
+```bash
+set -a
+source .env
+set +a
+```
+
+方式 B（单命令启动时注入）：
+
+```bash
+env $(grep -v '^#' .env | xargs) python app.py
+```
+
+### 3) 启动应用
 
 ```bash
 python3 -m venv .venv
@@ -42,7 +65,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-### 3) 开发模式切回 SQLite（可选）
+### 4) 开发模式切回 SQLite（可选）
 
 ```bash
 export USE_SQLITE=1
