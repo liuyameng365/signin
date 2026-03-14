@@ -72,12 +72,6 @@ python app.py
 > 说明 MySQL 账号使用了 `caching_sha2_password/sha256_password` 认证方式。
 > 本项目已在 `requirements.txt` 增加 `cryptography`，重新执行 `pip install -r requirements.txt` 即可。
 
-### 4) 开发模式切回 SQLite（可选）
-
-```bash
-export USE_SQLITE=1
-```
-
 打开浏览器访问：
 
 - 扫码页：`http://127.0.0.1:5000/`
@@ -97,3 +91,4 @@ export USE_SQLITE=1
 - `users`：用户身份信息（姓名、身份证号、工区、累计签到天数）。
 - `scan_sessions`：扫码会话信息。
 - `checkins`：签到明细（用户+签到时间）。
+checkins`：签到明细（用户+签到时间）。

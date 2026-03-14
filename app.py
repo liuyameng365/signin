@@ -23,15 +23,8 @@ from flask_sqlalchemy import SQLAlchemy
 from openpyxl import Workbook
 from sqlalchemy import and_
 
-BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "signin.db"
-
-
 def build_database_uri() -> str:
-    """默认使用 MySQL；开发调试可通过 USE_SQLITE=1 切回 SQLite。"""
-
-    if os.getenv("USE_SQLITE", "0") == "1":
-        return f"sqlite:///{DB_PATH}"
+    """仅支持 MySQL。"""
 
     database_url = os.getenv("DATABASE_URL")
     if database_url:
