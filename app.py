@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import os
 import secrets
+from functools import wraps
 from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
@@ -14,15 +15,18 @@ from flask import (
     Flask,
     Response,
     flash,
+    g,
     redirect,
     render_template,
     request,
     send_file,
+    session,
     url_for,
 )
 from flask_sqlalchemy import SQLAlchemy
 from openpyxl import Workbook
 from sqlalchemy import and_
+from werkzeug.security import check_password_hash, generate_password_hash
 
 BEIJING_TZ = ZoneInfo("Asia/Shanghai")
 BASE_DIR = Path(__file__).resolve().parent
@@ -96,6 +100,51 @@ app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-change-me")
 
 db = SQLAlchemy(app)
 
+ADMIN_ROLES = {
+    "viewer": {"label": "查看员", "permissions": {"dashboard:view"}},
+    "manager": {
+        "label": "管理员",
+        "permissions": {"dashboard:view", "dashboard:export", "admin_users:manage"},
+    },
+}
+
+
+def has_permission(permission: str) -> bool:
+    admin = getattr(g, "admin_user", None)
+    if not admin or not admin.is_active:
+        return False
+
+    role = ADMIN_ROLES.get(admin.role, {})
+    return permission in role.get("permissions", set())
+
+
+def login_required(view):
+    @wraps(view)
+    def wrapped_view(*args, **kwargs):
+        if not getattr(g, "admin_user", None):
+            flash("请先登录后台。", "warning")
+            return redirect(url_for("admin_login", next=request.url))
+        return view(*args, **kwargs)
+
+    return wrapped_view
+
+
+def permission_required(permission: str):
+    def decorator(view):
+        @wraps(view)
+        def wrapped_view(*args, **kwargs):
+            if not getattr(g, "admin_user", None):
+                flash("请先登录后台。", "warning")
+                return redirect(url_for("admin_login", next=request.url))
+            if not has_permission(permission):
+                flash("当前账号没有访问该功能的权限。", "error")
+                return redirect(url_for("admin_page"))
+            return view(*args, **kwargs)
+
+        return wrapped_view
+
+    return decorator
+
 
 class User(db.Model):
     __tablename__ = "users"
@@ -127,6 +176,24 @@ class Checkin(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     session_token = db.Column(db.String(64), nullable=False)
     checkin_time = db.Column(db.DateTime, default=beijing_now, nullable=False)
+
+
+class AdminUser(db.Model):
+    __tablename__ = "admin_users"
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    display_name = db.Column(db.String(50), nullable=False)
+    role = db.Column(db.String(20), nullable=False, default="viewer")
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, default=beijing_now, nullable=False)
+
+    def set_password(self, password: str) -> None:
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password: str) -> bool:
+        return check_password_hash(self.password_hash, password)
 
 
 def init_db() -> None:
@@ -161,6 +228,51 @@ def seed_demo_users() -> None:
     db.session.commit()
 
 
+def seed_admin_user() -> None:
+    username = os.getenv("ADMIN_USERNAME", "admin")
+    password = os.getenv("ADMIN_PASSWORD", "admin123456")
+    display_name = os.getenv("ADMIN_DISPLAY_NAME", "系统管理员")
+    role = os.getenv("ADMIN_ROLE", "manager")
+    if role not in ADMIN_ROLES:
+        role = "manager"
+
+    exists = AdminUser.query.filter_by(username=username).first()
+    if exists:
+        return
+
+    admin = AdminUser(
+        username=username,
+        display_name=display_name,
+        role=role,
+        is_active=True,
+    )
+    admin.set_password(password)
+    db.session.add(admin)
+    db.session.commit()
+
+
+def get_or_create_scan_session(token: str) -> Optional[ScanSession]:
+    return ScanSession.query.filter_by(token=token).first()
+
+
+def sanitize_openid(value: str) -> str:
+    cleaned = (value or "").strip()
+    if cleaned:
+        return cleaned
+    return f"guest_{secrets.token_hex(8)}"
+
+
+@app.before_request
+def load_admin_user() -> None:
+    admin_id = session.get("admin_user_id")
+    g.admin_user = db.session.get(AdminUser, admin_id) if admin_id else None
+    g.admin_permissions = (
+        ADMIN_ROLES.get(g.admin_user.role, {}).get("permissions", set())
+        if g.admin_user and g.admin_user.is_active
+        else set()
+    )
+
+
 @app.route("/")
 def index() -> str:
     token = secrets.token_urlsafe(16)
@@ -190,37 +302,77 @@ def wechat_scan() -> str:
     token = request.args.get("token", "")
     openid = request.args.get("openid", "wx_openid_zhangsan")
 
-    session = ScanSession.query.filter_by(token=token).first()
-    if not session:
+    scan_session = get_or_create_scan_session(token)
+    if not scan_session:
         return "二维码已失效或不存在", 404
 
     user = User.query.filter_by(openid=openid).first()
     if not user:
-        user = User(
-            openid=openid,
-            name=request.args.get("name", "新用户"),
-            id_card=request.args.get("id_card", f"ID{secrets.randbelow(10**8):08d}"),
-            work_area=request.args.get("work_area", "未知工区"),
-            signed_days=0,
-        )
-        db.session.add(user)
-        db.session.commit()
+        session["pending_openid"] = sanitize_openid(openid)
+        return redirect(url_for("user_profile_form", token=token))
 
-    session.user_id = user.id
-    session.scanned_at = beijing_now()
+    scan_session.user_id = user.id
+    scan_session.scanned_at = beijing_now()
     db.session.commit()
 
-    return render_template("confirm.html", session=session, user=user)
+    return render_template("confirm.html", session=scan_session, user=user)
+
+
+@app.route("/profile/<token>", methods=["GET", "POST"])
+def user_profile_form(token: str) -> str:
+    scan_session = get_or_create_scan_session(token)
+    if not scan_session:
+        return "二维码已失效或不存在", 404
+
+    form_data = {
+        "name": request.form.get("name", "").strip(),
+        "id_card": request.form.get("id_card", "").strip(),
+        "work_area": request.form.get("work_area", "").strip(),
+        "openid": request.form.get("openid", session.get("pending_openid", "")).strip(),
+    }
+
+    if request.method == "POST":
+        if not all([form_data["name"], form_data["id_card"], form_data["work_area"]]):
+            flash("请完整填写姓名、身份证号和所属工区。", "warning")
+        else:
+            existing_by_card = User.query.filter_by(id_card=form_data["id_card"]).first()
+            if existing_by_card and existing_by_card.openid != form_data["openid"]:
+                flash("该身份证号已存在，不能重复登记。", "error")
+            else:
+                user = User.query.filter_by(openid=form_data["openid"]).first()
+                if not user:
+                    user = User(
+                        openid=sanitize_openid(form_data["openid"]),
+                        signed_days=0,
+                        name=form_data["name"],
+                        id_card=form_data["id_card"],
+                        work_area=form_data["work_area"],
+                    )
+                    db.session.add(user)
+                else:
+                    user.name = form_data["name"]
+                    user.id_card = form_data["id_card"]
+                    user.work_area = form_data["work_area"]
+
+                db.session.flush()
+                scan_session.user_id = user.id
+                scan_session.scanned_at = beijing_now()
+                db.session.commit()
+                session.pop("pending_openid", None)
+                flash("信息已保存，请确认签到。", "success")
+                return render_template("confirm.html", session=scan_session, user=user)
+
+    return render_template("profile.html", token=token, form_data=form_data)
 
 
 @app.post("/checkin/<token>")
 def do_checkin(token: str):
-    session = ScanSession.query.filter_by(token=token).first()
-    if not session or not session.user_id:
+    scan_session = ScanSession.query.filter_by(token=token).first()
+    if not scan_session or not scan_session.user_id:
         flash("无效扫码会话，请重新扫码。", "error")
         return redirect(url_for("index"))
 
-    user = User.query.get(session.user_id)
+    user = db.session.get(User, scan_session.user_id)
     today = beijing_today()
     today_start = datetime.combine(today, datetime.min.time())
     today_end = datetime.combine(today, datetime.max.time())
@@ -239,7 +391,7 @@ def do_checkin(token: str):
         checkin = Checkin(user_id=user.id, session_token=token)
         db.session.add(checkin)
         user.signed_days += 1
-        session.checked_in = True
+        scan_session.checked_in = True
         db.session.commit()
         flash("签到成功！", "success")
 
@@ -267,7 +419,37 @@ def query_checkins(
     return q.all()
 
 
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    if g.admin_user:
+        return redirect(url_for("admin_page"))
+
+    next_url = request.args.get("next") or request.form.get("next") or url_for("admin_page")
+
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        admin = AdminUser.query.filter_by(username=username).first()
+        if not admin or not admin.is_active or not admin.check_password(password):
+            flash("用户名或密码错误。", "error")
+        else:
+            session["admin_user_id"] = admin.id
+            flash("登录成功。", "success")
+            return redirect(next_url)
+
+    return render_template("admin_login.html", next_url=next_url)
+
+
+@app.route("/admin/logout", methods=["POST"])
+@login_required
+def admin_logout():
+    session.pop("admin_user_id", None)
+    flash("已退出登录。", "success")
+    return redirect(url_for("admin_login"))
+
+
 @app.route("/admin")
+@permission_required("dashboard:view")
 def admin_page() -> str:
     filters = {
         "name": request.args.get("name", "").strip(),
@@ -279,6 +461,7 @@ def admin_page() -> str:
 
 
 @app.route("/admin/export")
+@permission_required("dashboard:export")
 def export_excel():
     filters = {
         "name": request.args.get("name", "").strip(),
@@ -316,8 +499,58 @@ def export_excel():
     )
 
 
+@app.route("/admin/accounts", methods=["GET", "POST"])
+@permission_required("admin_users:manage")
+def admin_accounts():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        display_name = request.form.get("display_name", "").strip()
+        password = request.form.get("password", "")
+        role = request.form.get("role", "viewer").strip()
+
+        if not username or not display_name or not password:
+            flash("请完整填写账号、姓名和密码。", "warning")
+        elif role not in ADMIN_ROLES:
+            flash("角色配置无效。", "error")
+        elif AdminUser.query.filter_by(username=username).first():
+            flash("该后台账号已存在。", "warning")
+        else:
+            admin = AdminUser(
+                username=username,
+                display_name=display_name,
+                role=role,
+                is_active=True,
+            )
+            admin.set_password(password)
+            db.session.add(admin)
+            db.session.commit()
+            flash("后台账号创建成功。", "success")
+            return redirect(url_for("admin_accounts"))
+
+    admins = AdminUser.query.order_by(AdminUser.created_at.desc()).all()
+    return render_template("admin_accounts.html", admins=admins, role_options=ADMIN_ROLES)
+
+
+@app.post("/admin/accounts/<int:admin_id>/toggle")
+@permission_required("admin_users:manage")
+def toggle_admin_account(admin_id: int):
+    admin = db.session.get(AdminUser, admin_id)
+    if not admin:
+        flash("管理员账号不存在。", "error")
+        return redirect(url_for("admin_accounts"))
+    if admin.id == g.admin_user.id:
+        flash("不能禁用当前登录账号。", "warning")
+        return redirect(url_for("admin_accounts"))
+
+    admin.is_active = not admin.is_active
+    db.session.commit()
+    flash("账号状态已更新。", "success")
+    return redirect(url_for("admin_accounts"))
+
+
 if __name__ == "__main__":
     with app.app_context():
         init_db()
         seed_demo_users()
+        seed_admin_user()
     app.run(host="0.0.0.0", port=5000, debug=True)

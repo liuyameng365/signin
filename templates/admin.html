@@ -8,43 +8,69 @@
 </head>
 <body>
   <div class="container">
-    <h1>签到后台管理</h1>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="msg {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="topbar">
+      <div>
+        <h1>签到后台管理</h1>
+        <p class="meta">当前登录：{{ g.admin_user.display_name }}（{{ g.admin_user.username }}）</p>
+      </div>
+      <div class="toolbar">
+        {% if 'admin_users:manage' in g.admin_permissions %}
+          <a class="btn" href="{{ url_for('admin_accounts') }}">管理员账号</a>
+        {% endif %}
+        {% if 'dashboard:export' in g.admin_permissions %}
+          <a
+            class="btn"
+            href="{{ url_for('export_excel', name=filters.name, id_card=filters.id_card, work_area=filters.work_area) }}"
+          >导出 Excel</a>
+        {% endif %}
+        <form method="post" action="{{ url_for('admin_logout') }}">
+          <button type="submit" class="btn">退出登录</button>
+        </form>
+      </div>
+    </div>
 
     <form class="filters" method="get" action="{{ url_for('admin_page') }}">
       <input type="text" name="name" placeholder="按姓名查询" value="{{ filters.name }}" />
       <input type="text" name="id_card" placeholder="按身份证号查询" value="{{ filters.id_card }}" />
       <input type="text" name="work_area" placeholder="按工区查询" value="{{ filters.work_area }}" />
       <button type="submit" class="btn primary">查询</button>
-      <a
-        class="btn"
-        href="{{ url_for('export_excel', name=filters.name, id_card=filters.id_card, work_area=filters.work_area) }}"
-      >导出 Excel</a>
+      <a class="btn" href="{{ url_for('admin_page') }}">重置</a>
     </form>
 
-    <table>
-      <thead>
-        <tr>
-          <th>姓名</th>
-          <th>身份证号</th>
-          <th>所属工区</th>
-          <th>累计签到天数</th>
-          <th>签到时间</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for checkin, user in rows %}
+    <div class="table-wrap">
+      <table>
+        <thead>
           <tr>
-            <td>{{ user.name }}</td>
-            <td>{{ user.id_card }}</td>
-            <td>{{ user.work_area }}</td>
-            <td>{{ user.signed_days }}</td>
-            <td>{{ checkin.checkin_time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+            <th>姓名</th>
+            <th>身份证号</th>
+            <th>所属工区</th>
+            <th>累计签到天数</th>
+            <th>签到时间</th>
           </tr>
-        {% else %}
-          <tr><td colspan="5">暂无数据</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {% for checkin, user in rows %}
+            <tr>
+              <td>{{ user.name }}</td>
+              <td>{{ user.id_card }}</td>
+              <td>{{ user.work_area }}</td>
+              <td>{{ user.signed_days }}</td>
+              <td>{{ checkin.checkin_time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5">暂无数据</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 </body>
 </html>

@@ -8,6 +8,14 @@
 </head>
 <body>
   <div class="card">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="msg {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
     <h1>确认签到</h1>
     <ul class="profile">
       <li><strong>姓名：</strong>{{ user.name }}</li>
@@ -16,7 +24,9 @@
       <li><strong>已签到天数：</strong>{{ user.signed_days }}</li>
     </ul>
     <form action="{{ url_for('do_checkin', token=session.token) }}" method="post">
-      <button type="submit" class="btn primary">确认签到</button>
+      <div class="actions">
+        <button type="submit" class="btn primary">确认签到</button>
+      </div>
     </form>
   </div>
 </body>

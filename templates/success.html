@@ -18,8 +18,10 @@
 
     <h1>{{ user.name }}，签到流程完成</h1>
     <p>累计签到天数：<strong>{{ user.signed_days }}</strong></p>
-    <a href="{{ url_for('index') }}" class="btn">返回扫码页</a>
-    <a href="{{ url_for('admin_page') }}" class="btn">查看后台</a>
+    <div class="actions">
+      <a href="{{ url_for('index') }}" class="btn">返回扫码页</a>
+      <a href="{{ url_for('admin_page') }}" class="btn">查看后台</a>
+    </div>
   </div>
 </body>
 </html>

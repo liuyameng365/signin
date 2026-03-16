@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>管理员账号管理</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="msg {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="topbar">
+      <div>
+        <h1>管理员账号管理</h1>
+        <p class="meta">可创建后台账号，并控制其查看或管理权限。</p>
+      </div>
+      <div class="toolbar">
+        <a href="{{ url_for('admin_page') }}" class="btn">返回后台</a>
+      </div>
+    </div>
+
+    <div class="admin-grid two-cols">
+      <section class="panel">
+        <h2>新建管理员账号</h2>
+        <form method="post" class="form-grid">
+          <div class="field">
+            <label for="username">登录账号</label>
+            <input id="username" name="username" type="text" placeholder="如：admin01" required />
+          </div>
+
+          <div class="field">
+            <label for="display_name">显示名称</label>
+            <input id="display_name" name="display_name" type="text" placeholder="如：现场管理员" required />
+          </div>
+
+          <div class="field">
+            <label for="password">初始密码</label>
+            <input id="password" name="password" type="password" placeholder="至少 6 位" required />
+          </div>
+
+          <div class="field">
+            <label for="role">角色</label>
+            <select id="role" name="role">
+              {% for role_key, role_data in role_options.items() %}
+                <option value="{{ role_key }}">{{ role_data.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="actions">
+            <button type="submit" class="btn primary">创建账号</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>现有账号</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>账号</th>
+                <th>姓名</th>
+                <th>角色</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for admin in admins %}
+                <tr>
+                  <td>{{ admin.username }}</td>
+                  <td>{{ admin.display_name }}</td>
+                  <td>{{ role_options[admin.role].label }}</td>
+                  <td>
+                    {% if admin.is_active %}
+                      <span class="badge">启用中</span>
+                    {% else %}
+                      <span class="badge muted">已停用</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if admin.id == g.admin_user.id %}
+                      <span class="hint">当前账号</span>
+                    {% else %}
+                      <form method="post" action="{{ url_for('toggle_admin_account', admin_id=admin.id) }}">
+                        <button type="submit" class="btn {% if admin.is_active %}danger{% endif %}">
+                          {% if admin.is_active %}停用{% else %}启用{% endif %}
+                        </button>
+                      </form>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="5">暂无管理员账号</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+</body>
+</html>

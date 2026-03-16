@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>后台登录</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="card compact">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="msg {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <h1>后台登录</h1>
+    <p>管理员登录后才能查看签到记录、导出数据或管理后台账号。</p>
+
+    <form method="post" class="form-grid">
+      <input type="hidden" name="next" value="{{ next_url }}" />
+
+      <div class="field">
+        <label for="username">账号</label>
+        <input id="username" name="username" type="text" placeholder="请输入后台账号" required />
+      </div>
+
+      <div class="field">
+        <label for="password">密码</label>
+        <input id="password" name="password" type="password" placeholder="请输入密码" required />
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="btn primary">登录后台</button>
+        <a href="{{ url_for('index') }}" class="btn">返回签到页</a>
+      </div>
+    </form>
+  </div>
+</body>
+</html>
