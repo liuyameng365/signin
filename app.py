@@ -7,6 +7,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 from urllib.parse import quote_plus
+from zoneinfo import ZoneInfo
 
 import qrcode
 from flask import (
@@ -22,6 +23,18 @@ from flask import (
 from flask_sqlalchemy import SQLAlchemy
 from openpyxl import Workbook
 from sqlalchemy import and_
+
+BEIJING_TZ = ZoneInfo("Asia/Shanghai")
+
+
+def beijing_now() -> datetime:
+    """返回北京时间的 naive datetime，用于与当前数据库字段保持一致。"""
+
+    return datetime.now(BEIJING_TZ).replace(tzinfo=None)
+
+
+def beijing_today() -> date:
+    return datetime.now(BEIJING_TZ).date()
 
 def build_database_uri() -> str:
     """仅支持 PostgreSQL。"""
@@ -63,7 +76,7 @@ class User(db.Model):
     id_card = db.Column(db.String(30), unique=True, nullable=False)
     work_area = db.Column(db.String(100), nullable=False)
     signed_days = db.Column(db.Integer, default=0, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=beijing_now, nullable=False)
 
 
 class ScanSession(db.Model):
@@ -74,7 +87,7 @@ class ScanSession(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     scanned_at = db.Column(db.DateTime, nullable=True)
     checked_in = db.Column(db.Boolean, default=False, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=beijing_now, nullable=False)
 
 
 class Checkin(db.Model):
@@ -83,7 +96,7 @@ class Checkin(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     session_token = db.Column(db.String(64), nullable=False)
-    checkin_time = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    checkin_time = db.Column(db.DateTime, default=beijing_now, nullable=False)
 
 
 def init_db() -> None:
@@ -164,7 +177,7 @@ def wechat_scan() -> str:
         db.session.commit()
 
     session.user_id = user.id
-    session.scanned_at = datetime.utcnow()
+    session.scanned_at = beijing_now()
     db.session.commit()
 
     return render_template("confirm.html", session=session, user=user)
@@ -178,8 +191,9 @@ def do_checkin(token: str):
         return redirect(url_for("index"))
 
     user = User.query.get(session.user_id)
-    today_start = datetime.combine(date.today(), datetime.min.time())
-    today_end = datetime.combine(date.today(), datetime.max.time())
+    today = beijing_today()
+    today_start = datetime.combine(today, datetime.min.time())
+    today_end = datetime.combine(today, datetime.max.time())
 
     exists_today = Checkin.query.filter(
         and_(
@@ -263,7 +277,7 @@ def export_excel():
     wb.save(output)
     output.seek(0)
 
-    filename = f"签到记录_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    filename = f"签到记录_{beijing_now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     return send_file(
         output,
         as_attachment=True,
