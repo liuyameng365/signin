@@ -24,22 +24,27 @@ from openpyxl import Workbook
 from sqlalchemy import and_
 
 def build_database_uri() -> str:
-    """仅支持 MySQL。"""
+    """构建 PostgreSQL 连接串。"""
 
     database_url = os.getenv("DATABASE_URL")
     if database_url:
         return database_url
 
-    mysql_host = os.getenv("MYSQL_HOST", "127.0.0.1")
-    mysql_port = os.getenv("MYSQL_PORT", "3306")
-    mysql_user = os.getenv("MYSQL_USER", "root")
-    mysql_password = quote_plus(os.getenv("MYSQL_PASSWORD", ""))
-    mysql_db = os.getenv("MYSQL_DB", "signin")
-    mysql_charset = os.getenv("MYSQL_CHARSET", "utf8mb4")
+    pg_host = os.getenv("POSTGRES_HOST", "127.0.0.1")
+    pg_port = os.getenv("POSTGRES_PORT", "5432")
+    pg_user = os.getenv("POSTGRES_USER", "postgres")
+    raw_password = os.getenv("POSTGRES_PASSWORD") or os.getenv("PGPASSWORD")
+    pg_db = os.getenv("POSTGRES_DB", "signin")
 
+    if not raw_password:
+        raise RuntimeError(
+            "未检测到 PostgreSQL 密码，请设置 POSTGRES_PASSWORD（或 PGPASSWORD）。"
+        )
+
+    pg_password = quote_plus(raw_password)
     return (
-        f"mysql+pymysql://{mysql_user}:{mysql_password}@{mysql_host}:{mysql_port}/"
-        f"{mysql_db}?charset={mysql_charset}"
+        f"postgresql+psycopg2://{pg_user}:{pg_password}@{pg_host}:{pg_port}/"
+        f"{pg_db}"
     )
 
 
