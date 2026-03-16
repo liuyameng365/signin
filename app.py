@@ -25,6 +25,26 @@ from openpyxl import Workbook
 from sqlalchemy import and_
 
 BEIJING_TZ = ZoneInfo("Asia/Shanghai")
+BASE_DIR = Path(__file__).resolve().parent
+
+
+def load_local_env() -> None:
+    """从项目根目录加载 .env，已存在的环境变量不覆盖。"""
+
+    env_file = BASE_DIR / ".env"
+    if not env_file.exists():
+        return
+
+    for raw_line in env_file.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'\"")
+        if key:
+            os.environ.setdefault(key, value)
 
 
 def beijing_now() -> datetime:
@@ -36,6 +56,7 @@ def beijing_now() -> datetime:
 def beijing_today() -> date:
     return datetime.now(BEIJING_TZ).date()
 
+
 def build_database_uri() -> str:
     """仅支持 PostgreSQL。"""
 
@@ -46,8 +67,16 @@ def build_database_uri() -> str:
     pg_host = os.getenv("POSTGRES_HOST", "127.0.0.1")
     pg_port = os.getenv("POSTGRES_PORT", "5432")
     pg_user = os.getenv("POSTGRES_USER", "postgres")
-    pg_password = quote_plus(os.getenv("POSTGRES_PASSWORD", ""))
+    raw_password = os.getenv("POSTGRES_PASSWORD", "")
     pg_db = os.getenv("POSTGRES_DB", "signin")
+
+    if not raw_password:
+        raise RuntimeError(
+            "未配置 POSTGRES_PASSWORD。请在环境变量或项目根目录 .env 中设置它，"
+            "或者直接设置 DATABASE_URL。"
+        )
+
+    pg_password = quote_plus(raw_password)
 
     return (
         f"postgresql+psycopg2://{pg_user}:{pg_password}@{pg_host}:{pg_port}/"
@@ -55,6 +84,7 @@ def build_database_uri() -> str:
     )
 
 
+load_local_env()
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = build_database_uri()
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
