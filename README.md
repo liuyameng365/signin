@@ -4,7 +4,7 @@
 
 - 访问签到页面生成二维码。
 - 微信扫码（演示中使用 `mock_scan` 模拟微信身份回调）并展示身份信息。
-- 用户点击确认签到后，将签到信息写入数据库（默认 MySQL，可切换 SQLite）。
+- 用户点击确认签到后，将签到信息写入数据库（默认 PostgreSQL）。
 - 后台管理页按姓名 / 身份证号 / 工区查询签到记录。
 - 支持导出 Excel。
 
@@ -12,32 +12,32 @@
 
 ## 运行方式
 
-### 1) 准备 MySQL 数据库（默认）
+### 1) 准备 PostgreSQL 数据库（默认）
 
 ```sql
-CREATE DATABASE IF NOT EXISTS signin DEFAULT CHARACTER SET utf8mb4;
+CREATE DATABASE signin;
 ```
 
 设置环境变量（推荐）：
 
 ```bash
-export MYSQL_HOST=127.0.0.1
-export MYSQL_PORT=3306
-export MYSQL_USER=root
-export MYSQL_PASSWORD=你的密码
-export MYSQL_DB=signin
+export POSTGRES_HOST=127.0.0.1
+export POSTGRES_PORT=5432
+export POSTGRES_USER=postgres
+export POSTGRES_PASSWORD=你的密码
+export POSTGRES_DB=signin
 export SECRET_KEY=请替换为随机字符串
 ```
 
 > 也可以直接设置 `DATABASE_URL`：
 >
-> `mysql+pymysql://user:password@host:3306/signin?charset=utf8mb4`
+> `postgresql+psycopg2://user:password@host:5432/signin`
 
 ### 2) 使用 `.env.example` 生成本地配置
 
 ```bash
 cp .env.example .env
-# 按你的环境修改 .env，至少要改 MYSQL_PASSWORD 和 SECRET_KEY
+# 按你的环境修改 .env，至少要改 POSTGRES_PASSWORD 和 SECRET_KEY
 ```
 
 你可以在启动前加载环境变量（任选一种方式）：
@@ -65,12 +65,6 @@ pip install -r requirements.txt
 python app.py
 ```
 
-> 如果报错：
->
-> `RuntimeError: 'cryptography' package is required for sha256_password or caching_sha2_password auth methods`
->
-> 说明 MySQL 账号使用了 `caching_sha2_password/sha256_password` 认证方式。
-> 本项目已在 `requirements.txt` 增加 `cryptography`，重新执行 `pip install -r requirements.txt` 即可。
 
 打开浏览器访问：
 
@@ -91,4 +85,3 @@ python app.py
 - `users`：用户身份信息（姓名、身份证号、工区、累计签到天数）。
 - `scan_sessions`：扫码会话信息。
 - `checkins`：签到明细（用户+签到时间）。
-checkins`：签到明细（用户+签到时间）。
